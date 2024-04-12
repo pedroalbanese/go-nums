@@ -85,7 +85,7 @@ func (pk *PublicKey) MarshalPKCS8PublicKey(curve elliptic.Curve) ([]byte, error)
 	return derBytes, nil
 }
 
-func ParsePublicKey(der []byte, curve elliptic.Curve) (*PublicKey, error) {
+func ParsePublicKey(der []byte) (*PublicKey, error) {
 	var publicKeyInfo struct {
 		Algorithm pkAlgorithmIdentifier
 		PublicKey asn1.BitString
@@ -96,7 +96,22 @@ func ParsePublicKey(der []byte, curve elliptic.Curve) (*PublicKey, error) {
 		return nil, err
 	}
 
+	// Determine the curve based on the length of the public key coordinates
+	keyLen := len(publicKeyInfo.PublicKey.Bytes)
+	var curve elliptic.Curve
+	switch keyLen {
+	case 65:
+		curve = P256()
+	case 129:
+		curve = P512()
+	default:
+		return nil, errors.New("unsupported key length")
+	}
+
 	X, Y := elliptic.Unmarshal(curve, publicKeyInfo.PublicKey.Bytes)
+	if X == nil || Y == nil {
+		return nil, errors.New("failed to unmarshal public key")
+	}
 
 	return &PublicKey{X: X, Y: Y}, nil
 }
@@ -153,7 +168,7 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 	return derBytes, nil
 }
 
-func ParsePrivateKey(der []byte, curve elliptic.Curve) (*PrivateKey, error) {
+func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 	var privateKeyInfo struct {
 		Version             int
 		PrivateKeyAlgorithm pkAlgorithmIdentifier
@@ -168,6 +183,18 @@ func ParsePrivateKey(der []byte, curve elliptic.Curve) (*PrivateKey, error) {
 		return nil, err
 	}
 
+	// Determine the curve based on the size of the private key
+	var curve elliptic.Curve
+	keySize := len(privateKeyInfo.PrivateKey) * 8
+	switch keySize {
+	case 256:
+		curve = P256()
+	case 512:
+		curve = P512()
+	default:
+		return nil, errors.New("Unknown curve")
+	}
+
 	X := privateKeyInfo.PublicKey.X
 	Y := privateKeyInfo.PublicKey.Y
 	D := new(big.Int).SetBytes(privateKeyInfo.PrivateKey)
@@ -176,7 +203,7 @@ func ParsePrivateKey(der []byte, curve elliptic.Curve) (*PrivateKey, error) {
 		return nil, errors.New("Public key is not on the curve")
 	}
 
-	// Crie e retorne a chave privada
+	// Create and return the private key
 	privateKey := &PrivateKey{
 		PublicKey: PublicKey{
 			X: X,
