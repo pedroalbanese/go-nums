@@ -106,19 +106,6 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 		return nil, errors.New("Public key is not on the curve")
 	}
 
-	// Create a PrivateKeyInfo structure
-	privateKeyInfo := struct {
-		Version             int
-		PrivateKeyAlgorithm pkAlgorithmIdentifier
-		PrivateKey          []byte
-	}{
-		Version: 0,
-		PrivateKeyAlgorithm: pkAlgorithmIdentifier{
-			Algorithm:  oidP256, 
-			Parameters: asn1.RawValue{Tag: asn1.TagOID, Bytes: []byte(oidP256.String())},
-		},
-	}
-
 	// Convert the private key D to bytes
 	dBytes := pk.D.Bytes()
 
@@ -128,7 +115,34 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 		dBytes = append(padding, dBytes...)
 	}
 
-	privateKeyInfo.PrivateKey = dBytes
+	// Marshal the public key coordinates
+	xBytes := pk.PublicKey.X.Bytes()
+	yBytes := pk.PublicKey.Y.Bytes()
+
+	// Create a PrivateKeyInfo structure
+	privateKeyInfo := struct {
+		Version             int
+		PrivateKeyAlgorithm pkAlgorithmIdentifier
+		PublicKey           struct {
+			X *big.Int
+			Y *big.Int
+		}
+		PrivateKey []byte
+	}{
+		Version: 0,
+		PrivateKeyAlgorithm: pkAlgorithmIdentifier{
+			Algorithm:  oidP256, 
+			Parameters: asn1.RawValue{Tag: asn1.TagOID, Bytes: []byte(oidP256.String())},
+		},
+		PublicKey: struct {
+			X *big.Int
+			Y *big.Int
+		}{
+			X: new(big.Int).SetBytes(xBytes),
+			Y: new(big.Int).SetBytes(yBytes),
+		},
+		PrivateKey: dBytes,
+	}
 
 	// Marshal the PrivateKeyInfo structure
 	derBytes, err := asn1.Marshal(privateKeyInfo)
@@ -143,27 +157,36 @@ func ParsePrivateKey(der []byte, curve elliptic.Curve) (*PrivateKey, error) {
 	var privateKeyInfo struct {
 		Version             int
 		PrivateKeyAlgorithm pkAlgorithmIdentifier
-		PrivateKey          []byte
+		PublicKey           struct {
+			X *big.Int
+			Y *big.Int
+		}
+		PrivateKey []byte
 	}
 	_, err := asn1.Unmarshal(der, &privateKeyInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	X, Y := elliptic.Unmarshal(curve, privateKeyInfo.PrivateKey)
+	X := privateKeyInfo.PublicKey.X
+	Y := privateKeyInfo.PublicKey.Y
+	D := new(big.Int).SetBytes(privateKeyInfo.PrivateKey)
 
+	if !curve.IsOnCurve(X, Y) {
+		return nil, errors.New("Public key is not on the curve")
+	}
+
+	// Crie e retorne a chave privada
 	privateKey := &PrivateKey{
 		PublicKey: PublicKey{
 			X: X,
 			Y: Y,
 		},
-		D: new(big.Int).SetBytes(privateKeyInfo.PrivateKey),
+		D: D,
 	}
 
 	return privateKey, nil
 }
-
-
 
 // ToECDSA converts PublicKey to *ecdsa.PublicKey
 func (pk *PublicKey) ToECDSA() *ecdsa.PublicKey {
