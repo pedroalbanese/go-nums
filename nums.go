@@ -215,7 +215,20 @@ func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 	return privateKey, nil
 }
 
-func (pk *PublicKey) ToECDSA(curve elliptic.Curve) *ecdsa.PublicKey {
+func (pk *PublicKey) ToECDSA() *ecdsa.PublicKey {
+	// Determine the curve based on the length of the public key coordinates
+	keyLen := len(pk.X.Bytes()) + len(pk.Y.Bytes()) + 1 // Account for the prefix byte
+	var curve elliptic.Curve
+	switch keyLen {
+	case 65:
+		curve = P256()
+	case 129:
+		curve = P512()
+	default:
+		log.Fatal("unsupported key length")
+	}
+
+	// Return the ECDSA public key
 	return &ecdsa.PublicKey{
 		Curve: curve,
 		X:     pk.X,
@@ -223,7 +236,20 @@ func (pk *PublicKey) ToECDSA(curve elliptic.Curve) *ecdsa.PublicKey {
 	}
 }
 
-func (pk *PrivateKey) ToECDSAPrivateKey(curve elliptic.Curve) *ecdsa.PrivateKey {
+func (pk *PrivateKey) ToECDSAPrivateKey() *ecdsa.PrivateKey {
+	// Determine the curve based on the size of the private key
+	var curve elliptic.Curve
+	keySize := len(pk.D.Bytes()) * 8
+	switch keySize {
+	case 256:
+		curve = P256()
+	case 512:
+		curve = P512()
+	default:
+		log.Fatal("Unknown curve")
+	}
+
+	// Create and return the ECDSA private key
 	return &ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
 			Curve: curve,
