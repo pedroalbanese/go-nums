@@ -188,19 +188,18 @@ func ParsePrivateKey(der []byte, curve elliptic.Curve) (*PrivateKey, error) {
 	return privateKey, nil
 }
 
-// ToECDSA converts PublicKey to *ecdsa.PublicKey
-func (pk *PublicKey) ToECDSA() *ecdsa.PublicKey {
+func (pk *PublicKey) ToECDSA(curve elliptic.Curve) *ecdsa.PublicKey {
 	return &ecdsa.PublicKey{
-		Curve: P256(),
+		Curve: curve,
 		X:     pk.X,
 		Y:     pk.Y,
 	}
 }
 
-func (pk *PrivateKey) ToECDSAPrivateKey() *ecdsa.PrivateKey {
+func (pk *PrivateKey) ToECDSAPrivateKey(curve elliptic.Curve) *ecdsa.PrivateKey {
 	return &ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
-			Curve: P256(),
+			Curve: curve,
 			X:     pk.PublicKey.X,
 			Y:     pk.PublicKey.Y,
 		},
@@ -208,9 +207,8 @@ func (pk *PrivateKey) ToECDSAPrivateKey() *ecdsa.PrivateKey {
 	}
 }
 
-// Compute the shared key between two ECDSA keys
 func ECDH(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey) ([]byte, error) {
 	// Compute shared key
-	x, _ := P256().ScalarMult(publicKey.X, publicKey.Y, privateKey.D.Bytes())
+	x, _ := privateKey.Curve.ScalarMult(publicKey.X, publicKey.Y, privateKey.D.Bytes())
 	return x.Bytes(), nil
 }
