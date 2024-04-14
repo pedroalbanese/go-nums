@@ -20,6 +20,7 @@ var (
 
 var initonce sync.Once
 var p256 *elliptic.CurveParams
+var p384 *elliptic.CurveParams
 var p512 *elliptic.CurveParams
 
 func initP256() {
@@ -35,6 +36,21 @@ func initP256() {
 func P256() elliptic.Curve {
 	initonce.Do(initP256)
 	return p256
+}
+
+func initP384() {
+	p384 = new(elliptic.CurveParams)
+	p384.P, _ = new(big.Int).SetString("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffec3", 16)
+	p384.N, _ = new(big.Int).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffd61eaf1eeb5d6881beda9d3d4c37e27a604d81f67b0e61b9", 16)
+	p384.B, _ = new(big.Int).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff77bb", 16)
+	p384.Gx, _ = new(big.Int).SetString("02", 16)
+	p384.Gy, _ = new(big.Int).SetString("3c9f82cb4b87b4dc71e763e0663e5dbd8034ed422f04f82673330dc58d15ffa2b4a3d0bad5d30f865bcbbf503ea66f43", 16)
+	p384.BitSize = 384
+}
+
+func P384() elliptic.Curve {
+	initonce.Do(initP384)
+	return p384
 }
 
 func initP512() {
@@ -78,6 +94,8 @@ func (pk *PublicKey) MarshalPKCS8PublicKey(curve elliptic.Curve) ([]byte, error)
 	switch curve {
 	case P256():
 		oid = oidNumsp256d1
+	case P384():
+		oid = oidNumsp384d1
 	case P512():
 		oid = oidNumsp512d1
 	default:
@@ -160,6 +178,8 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 	switch curve {
 	case P256():
 		oid = oidNumsp256d1
+	case P384():
+		oid = oidNumsp384d1
 	case P512():
 		oid = oidNumsp512d1
 	default:
@@ -199,6 +219,7 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 
 	return derBytes, nil
 }
+
 
 func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 	var privateKeyInfo struct {
@@ -253,6 +274,8 @@ func (pk *PublicKey) ToECDSA() *ecdsa.PublicKey {
 	switch keyLen {
 	case 65:
 		curve = P256()
+	case 97:
+		curve = P384()
 	case 129:
 		curve = P512()
 	default:
@@ -274,6 +297,8 @@ func (pk *PrivateKey) ToECDSAPrivateKey() *ecdsa.PrivateKey {
 	switch keySize {
 	case 256:
 		curve = P256()
+	case 384:
+		curve = P384()
 	case 512:
 		curve = P512()
 	default:
