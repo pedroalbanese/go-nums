@@ -200,7 +200,6 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 	return derBytes, nil
 }
 
-
 func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 	var privateKeyInfo struct {
 		Version             int
@@ -247,16 +246,17 @@ func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 	return privateKey, nil
 }
 
-func (pk *PublicKey) ToECDSA() (*ecdsa.PublicKey, error) {
-	// Determine the curve based on the OID of the public key
+func (pk *PublicKey) ToECDSA() *ecdsa.PublicKey {
+	// Determine the curve based on the length of the public key coordinates
+	keyLen := len(pk.X.Bytes()) + len(pk.Y.Bytes()) + 1
 	var curve elliptic.Curve
-	switch {
-	case pk.Curve.Equal(oidNumsp256d1):
+	switch keyLen {
+	case 65:
 		curve = P256()
-	case pk.Curve.Equal(oidNumsp512d1):
+	case 129:
 		curve = P512()
 	default:
-		return nil, errors.New("unsupported curve OID")
+		log.Fatal("unsupported key length")
 	}
 
 	// Return the ECDSA public key
@@ -264,19 +264,20 @@ func (pk *PublicKey) ToECDSA() (*ecdsa.PublicKey, error) {
 		Curve: curve,
 		X:     pk.X,
 		Y:     pk.Y,
-	}, nil
+	}
 }
 
-func (pk *PrivateKey) ToECDSAPrivateKey() (*ecdsa.PrivateKey, error) {
-	// Determine the curve based on the OID of the private key
+func (pk *PrivateKey) ToECDSAPrivateKey() *ecdsa.PrivateKey {
+	// Determine the curve based on the size of the private key
 	var curve elliptic.Curve
-	switch {
-	case pk.Curve.Equal(oidNumsp256d1):
+	keySize := len(pk.D.Bytes()) * 8
+	switch keySize {
+	case 256:
 		curve = P256()
-	case pk.Curve.Equal(oidNumsp512d1):
+	case 512:
 		curve = P512()
 	default:
-		return nil, errors.New("unsupported curve OID")
+		log.Fatal("Unknown curve")
 	}
 
 	// Create and return the ECDSA private key
@@ -287,7 +288,7 @@ func (pk *PrivateKey) ToECDSAPrivateKey() (*ecdsa.PrivateKey, error) {
 			Y:     pk.PublicKey.Y,
 		},
 		D: pk.D,
-	}, nil
+	}
 }
 
 func ECDH(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey) ([]byte, error) {
