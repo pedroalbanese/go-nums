@@ -10,6 +10,14 @@ import (
 	"sync"
 )
 
+var (
+    oidNums = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 0}
+
+    oidNumsp256d1 = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 0, 1}
+    oidNumsp384d1 = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 0, 3}
+    oidNumsp512d1 = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 0, 5}
+)
+
 var initonce sync.Once
 var p256 *elliptic.CurveParams
 var p512 *elliptic.CurveParams
@@ -65,14 +73,25 @@ func (pk *PublicKey) MarshalPKCS8PublicKey(curve elliptic.Curve) ([]byte, error)
 	// Marshal the public key coordinates
 	derBytes := elliptic.Marshal(curve, pk.X, pk.Y)
 
+	// Determine the OID based on the curve
+	var oid asn1.ObjectIdentifier
+	switch curve {
+	case P256():
+		oid = oidNumsp256d1
+	case P512():
+		oid = oidNumsp512d1
+	default:
+		return nil, errors.New("unsupported curve")
+	}
+
 	// Create a SubjectPublicKeyInfo structure
 	subjectPublicKeyInfo := struct {
 		Algorithm pkAlgorithmIdentifier
 		PublicKey asn1.BitString
 	}{
 		Algorithm: pkAlgorithmIdentifier{
-			Algorithm:  oidP256,
-			Parameters: asn1.RawValue{Tag: asn1.TagOID, Bytes: []byte(oidP256.String())},
+			Algorithm:  oid,
+			Parameters: asn1.RawValue{Tag: asn1.TagOID, Bytes: []byte(oid.String())},
 		},
 		PublicKey: asn1.BitString{Bytes: derBytes, BitLength: len(derBytes) * 8},
 	}
@@ -97,18 +116,23 @@ func ParsePublicKey(der []byte) (*PublicKey, error) {
 		return nil, err
 	}
 
-	// Determine the curve based on the length of the public key coordinates
-	keyLen := len(publicKeyInfo.PublicKey.Bytes)
+	// Determine the curve based on the OID
 	var curve elliptic.Curve
-	switch keyLen {
-	case 65:
+	switch {
+	case publicKeyInfo.Algorithm.Algorithm.Equal(oidNumsp256d1):
 		curve = P256()
-	case 129:
+	case publicKeyInfo.Algorithm.Algorithm.Equal(oidNumsp512d1):
 		curve = P512()
 	default:
-		return nil, errors.New("unsupported key length")
+		return nil, errors.New("unsupported curve OID")
 	}
 
+	// Check if the public key bytes are empty
+	if len(publicKeyInfo.PublicKey.Bytes) == 0 {
+		return nil, errors.New("public key bytes are empty")
+	}
+
+	// Unmarshal the public key coordinates
 	X, Y := elliptic.Unmarshal(curve, publicKeyInfo.PublicKey.Bytes)
 	if X == nil || Y == nil {
 		return nil, errors.New("failed to unmarshal public key")
@@ -131,9 +155,16 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 		dBytes = append(padding, dBytes...)
 	}
 
-	// Marshal the public key coordinates
-	xBytes := pk.PublicKey.X.Bytes()
-	yBytes := pk.PublicKey.Y.Bytes()
+	// Determine the OID based on the curve
+	var oid asn1.ObjectIdentifier
+	switch curve {
+	case P256():
+		oid = oidNumsp256d1
+	case P512():
+		oid = oidNumsp512d1
+	default:
+		return nil, errors.New("unsupported curve")
+	}
 
 	// Create a PrivateKeyInfo structure
 	privateKeyInfo := struct {
@@ -147,15 +178,15 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 	}{
 		Version: 0,
 		PrivateKeyAlgorithm: pkAlgorithmIdentifier{
-			Algorithm:  oidP256, 
-			Parameters: asn1.RawValue{Tag: asn1.TagOID, Bytes: []byte(oidP256.String())},
+			Algorithm:  oid,
+			Parameters: asn1.RawValue{Tag: asn1.TagOID, Bytes: []byte(oid.String())},
 		},
 		PublicKey: struct {
 			X *big.Int
 			Y *big.Int
 		}{
-			X: new(big.Int).SetBytes(xBytes),
-			Y: new(big.Int).SetBytes(yBytes),
+			X: new(big.Int).SetBytes(pk.PublicKey.X.Bytes()),
+			Y: new(big.Int).SetBytes(pk.PublicKey.Y.Bytes()),
 		},
 		PrivateKey: dBytes,
 	}
@@ -168,6 +199,7 @@ func (pk *PrivateKey) MarshalPKCS8PrivateKey(curve elliptic.Curve) ([]byte, erro
 
 	return derBytes, nil
 }
+
 
 func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 	var privateKeyInfo struct {
@@ -184,16 +216,15 @@ func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 		return nil, err
 	}
 
-	// Determine the curve based on the size of the private key
+	// Determine the curve based on the OID
 	var curve elliptic.Curve
-	keySize := len(privateKeyInfo.PrivateKey) * 8
-	switch keySize {
-	case 256:
+	switch {
+	case privateKeyInfo.PrivateKeyAlgorithm.Algorithm.Equal(oidNumsp256d1):
 		curve = P256()
-	case 512:
+	case privateKeyInfo.PrivateKeyAlgorithm.Algorithm.Equal(oidNumsp512d1):
 		curve = P512()
 	default:
-		return nil, errors.New("Unknown curve")
+		return nil, errors.New("unsupported curve OID")
 	}
 
 	X := privateKeyInfo.PublicKey.X
@@ -216,17 +247,16 @@ func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 	return privateKey, nil
 }
 
-func (pk *PublicKey) ToECDSA() *ecdsa.PublicKey {
-	// Determine the curve based on the length of the public key coordinates
-	keyLen := len(pk.X.Bytes()) + len(pk.Y.Bytes()) + 1 // Account for the prefix byte
+func (pk *PublicKey) ToECDSA() (*ecdsa.PublicKey, error) {
+	// Determine the curve based on the OID of the public key
 	var curve elliptic.Curve
-	switch keyLen {
-	case 65:
+	switch {
+	case pk.Curve.Equal(oidNumsp256d1):
 		curve = P256()
-	case 129:
+	case pk.Curve.Equal(oidNumsp512d1):
 		curve = P512()
 	default:
-		log.Fatal("unsupported key length")
+		return nil, errors.New("unsupported curve OID")
 	}
 
 	// Return the ECDSA public key
@@ -234,20 +264,19 @@ func (pk *PublicKey) ToECDSA() *ecdsa.PublicKey {
 		Curve: curve,
 		X:     pk.X,
 		Y:     pk.Y,
-	}
+	}, nil
 }
 
-func (pk *PrivateKey) ToECDSAPrivateKey() *ecdsa.PrivateKey {
-	// Determine the curve based on the size of the private key
+func (pk *PrivateKey) ToECDSAPrivateKey() (*ecdsa.PrivateKey, error) {
+	// Determine the curve based on the OID of the private key
 	var curve elliptic.Curve
-	keySize := len(pk.D.Bytes()) * 8
-	switch keySize {
-	case 256:
+	switch {
+	case pk.Curve.Equal(oidNumsp256d1):
 		curve = P256()
-	case 512:
+	case pk.Curve.Equal(oidNumsp512d1):
 		curve = P512()
 	default:
-		log.Fatal("Unknown curve")
+		return nil, errors.New("unsupported curve OID")
 	}
 
 	// Create and return the ECDSA private key
@@ -258,7 +287,7 @@ func (pk *PrivateKey) ToECDSAPrivateKey() *ecdsa.PrivateKey {
 			Y:     pk.PublicKey.Y,
 		},
 		D: pk.D,
-	}
+	}, nil
 }
 
 func ECDH(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey) ([]byte, error) {
