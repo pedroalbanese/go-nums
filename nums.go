@@ -68,8 +68,6 @@ func P512() elliptic.Curve {
 	return p512
 }
 
-var oidP256 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 111}
-
 // Define pkAlgorithmIdentifier to avoid undefined identifier
 type pkAlgorithmIdentifier struct {
 	Algorithm  asn1.ObjectIdentifier
