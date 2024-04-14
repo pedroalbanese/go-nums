@@ -139,6 +139,8 @@ func ParsePublicKey(der []byte) (*PublicKey, error) {
 	switch {
 	case publicKeyInfo.Algorithm.Algorithm.Equal(oidNumsp256d1):
 		curve = P256()
+	case publicKeyInfo.Algorithm.Algorithm.Equal(oidNumsp384d1):
+		curve = P384()
 	case publicKeyInfo.Algorithm.Algorithm.Equal(oidNumsp512d1):
 		curve = P512()
 	default:
@@ -241,6 +243,8 @@ func ParsePrivateKey(der []byte) (*PrivateKey, error) {
 	switch {
 	case privateKeyInfo.PrivateKeyAlgorithm.Algorithm.Equal(oidNumsp256d1):
 		curve = P256()
+	case privateKeyInfo.PrivateKeyAlgorithm.Algorithm.Equal(oidNumsp384d1):
+		curve = P384()
 	case privateKeyInfo.PrivateKeyAlgorithm.Algorithm.Equal(oidNumsp512d1):
 		curve = P512()
 	default:
