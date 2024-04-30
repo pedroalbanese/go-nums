@@ -5,7 +5,6 @@ import (
 	"crypto/elliptic"
 	"encoding/asn1"
 	"errors"
-	"log"
 	"math/big"
 	"sync"
 )
