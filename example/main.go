@@ -12,8 +12,8 @@ import (
 )
 
 func main() {
-	// Generate an ECDSA key pair using the P256 curve
-	privateKey, err := ecdsa.GenerateKey(nums.P256(), rand.Reader)
+	// Generate an ECDSA key pair using the NUMSP256t1 curve
+	privateKey, err := ecdsa.GenerateKey(nums.P256t1(), rand.Reader)
 	if err != nil {
 		log.Fatal("Error generating private key:", err)
 	}
@@ -28,13 +28,13 @@ func main() {
 	}
 
 	// Marshal the private key to PKCS#8 format
-	privateKeyBytes, err := pk.MarshalPKCS8PrivateKey(nums.P256())
+	privateKeyBytes, err := pk.MarshalPKCS8PrivateKey(nums.P256t1())
 	if err != nil {
 		log.Fatal("Error marshaling private key to PKCS#8 format:", err)
 	}
 
 	// Marshal the public key to PKCS#8 format
-	publicKeyBytes, err := pk.PublicKey.MarshalPKCS8PublicKey(nums.P256())
+	publicKeyBytes, err := pk.PublicKey.MarshalPKCS8PublicKey(nums.P256t1())
 	if err != nil {
 		log.Fatal("Error marshaling public key to PKCS#8 format:", err)
 	}
@@ -59,7 +59,7 @@ func main() {
 		if block == nil || block.Type != "PRIVATE KEY" {
 			return nil, fmt.Errorf("Error decoding PEM block of private key")
 		}
-		return nums.ParsePrivateKey(block.Bytes, nums.P256())
+		return nums.ParsePrivateKey(block.Bytes)
 	}(privateKeyPEM)
 	if err != nil {
 		log.Fatal("Error getting private key from PEM block:", err)
@@ -70,7 +70,7 @@ func main() {
 		if block == nil || block.Type != "PUBLIC KEY" {
 			return nil, fmt.Errorf("Error decoding PEM block of public key")
 		}
-		return nums.ParsePublicKey(block.Bytes, nums.P256())
+		return nums.ParsePublicKey(block.Bytes)
 	}(publicKeyPEM)
 	if err != nil {
 		log.Fatal("Error getting public key from PEM block:", err)
@@ -80,13 +80,13 @@ func main() {
 	hash := sha256.Sum256([]byte("message"))
 
 	// Sign the message using the private key
-	signature, err := ecdsa.SignASN1(rand.Reader, privateKeyFromPEM.ToECDSAPrivateKey(nums.P256()), hash[:])
+	signature, err := ecdsa.SignASN1(rand.Reader, privateKeyFromPEM.ToECDSAPrivateKey(), hash[:])
 	if err != nil {
 		log.Fatal("Failed to sign the message:", err)
 	}
 
 	// Verify the signature using the public key
-	valid := ecdsa.VerifyASN1(publicKeyFromPEM.ToECDSA(nums.P256()), hash[:], signature)
+	valid := ecdsa.VerifyASN1(publicKeyFromPEM.ToECDSA(), hash[:], signature)
 	if valid {
 		fmt.Println("Valid signature")
 	} else {
@@ -96,13 +96,13 @@ func main() {
 	// ECDH
 
 	// Generate an ECDSA key pair using the P256 curve
-	privateKeyAlice, err := ecdsa.GenerateKey(nums.P256(), rand.Reader)
+	privateKeyAlice, err := ecdsa.GenerateKey(nums.P256t1(), rand.Reader)
 	if err != nil {
 		log.Fatal("Error generating private key for Alice:", err)
 	}
 
 	// Generate an ECDSA key pair using the P256 curve
-	privateKeyBob, err := ecdsa.GenerateKey(nums.P256(), rand.Reader)
+	privateKeyBob, err := ecdsa.GenerateKey(nums.P256t1(), rand.Reader)
 	if err != nil {
 		log.Fatal("Error generating private key for Bob:", err)
 	}
