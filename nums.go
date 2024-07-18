@@ -413,7 +413,7 @@ func (priv *PrivateKey) Sign(message []byte) ([]byte, error) {
 
 	// Calcular a assinatura
 	s := new(big.Int).Mul(priv.D, r) // Multiplicando D pelo nonce r
-	s = new(big.Int).Mod(s, priv.Curve.Params().N)
+	s = new(big.Int).Mod(s, priv.PublicKey().Curve.Params().N)
 
 	// Combinar R e a assinatura
 	signature := append(Rx.Bytes(), s.Bytes()...)
