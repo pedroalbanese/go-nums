@@ -400,3 +400,39 @@ func ECDH(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey) ([]byte, err
 	x, _ := privateKey.Curve.ScalarMult(publicKey.X, publicKey.Y, privateKey.D.Bytes())
 	return x.Bytes(), nil
 }
+
+func (priv *PrivateKey) Sign(message []byte) ([]byte, error) {
+	// Criar um nonce
+	r, err := rand.Int(rand.Reader, priv.PublicKey().Curve.Params().N)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calcular R
+	Rx, _ := priv.PublicKey().Curve.ScalarBaseMult(r.Bytes())
+
+	// Calcular a assinatura
+	s := new(big.Int).Mul(priv.D, r) // Multiplicando D pelo nonce r
+	s = new(big.Int).Mod(s, priv.Curve.Params().N)
+
+	// Combinar R e a assinatura
+	signature := append(Rx.Bytes(), s.Bytes()...)
+	return signature, nil
+}
+
+func (pub *PublicKey) Verify(message, signature []byte) bool {
+	if len(signature) < pub.Curve.Params().BitSize/8 {
+		return false
+	}
+
+	Rx := new(big.Int).SetBytes(signature[:len(signature)/2])
+	s := new(big.Int).SetBytes(signature[len(signature)/2:])
+
+	// Verificar a assinatura
+	Vx, _ := pub.Curve.ScalarMult(pub.A, pub.A, s.Bytes())
+	RxExpected, _ := pub.Curve.ScalarBaseMult(Rx.Bytes())
+
+	// Comparar pontos
+	return Vx.Cmp(RxExpected) == 0
+}
+
