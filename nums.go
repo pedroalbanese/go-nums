@@ -93,7 +93,7 @@ func initP256t1() {
 	params.Gx, _ = new(big.Int).SetString("0D", 16)
 	params.Gy, _ = new(big.Int).SetString("7d0ab41e2a1276dba3d330b39fa046bfbe2a6d63824d303f707f6fb5331cadba", 16)
 	r, _ := new(big.Int).SetString("3fffffffffffffffffffffffffffffffbe6aa55ad0a6bc64e5b84e6f1122b4ad", 16)
-	p256t1 = newRcurve(P256d1(), params, r)
+	p256t1 = newRcurve(twisted, params, r)
 }
 
 func P256t1() elliptic.Curve {
@@ -112,7 +112,7 @@ func initP384t1() {
 	params.Gx, _ = new(big.Int).SetString("08", 16)
 	params.Gy, _ = new(big.Int).SetString("749cdaba136ce9b65bd4471794aa619daa5c7b4c930bff8ebd798a8ae753c6d72f003860febabad534a4acf5fa7f5bee", 16)
 	r, _ := new(big.Int).SetString("3fffffffffffffffffffffffffffffffffffffffffffffffecd7d11ed5a259a25a13a0458e39f4e451d6d71f70426e25", 16)
-	p384t1 = newRcurve(P384d1(), params, r)
+	p384t1 = newRcurve(twisted, params, r)
 }
 
 func P384t1() elliptic.Curve {
@@ -131,7 +131,7 @@ func initP512t1() {
 	params.Gx, _ = new(big.Int).SetString("20", 16)
 	params.Gy, _ = new(big.Int).SetString("7d67e841dc4c467b605091d80869212f9ceb124bf726973f9ff048779e1d614e62ae2ece5057b5dad96b7a897c1d72799261134638750f4f0cb91027543b1c5e", 16)
 	r, _ := new(big.Int).SetString("3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa7e50809efdabbb9a624784f449545f0dcea5ff0cb800f894e78d1cb0b5f0189", 16)
-	p512t1 = newRcurve(P512d1(), params, r)
+	p512t1 = newRcurve(twisted, params, r)
 }
 
 func P512t1() elliptic.Curve {
